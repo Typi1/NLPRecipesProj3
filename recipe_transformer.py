@@ -19,6 +19,139 @@ chrome_options = Options()
 chrome_options.add_argument("--headless")
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
+def get_substitute_list(query:str):
+    query = re.sub("[.,;!]", "", query)
+    if query == "": return None
+    # chrome_options = Options()
+    # chrome_options.add_argument("--headless")
+    # driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    url = "https://foodsubs.com/groups?a=&name=" + query
+    driver.get(url)
+    query_html = BeautifulSoup(driver.page_source, 'html.parser')
+    # print(query_html.prettify())
+    # print(query_html.find('a', class_ ="card-learn-more").attrs['href'])
+    url_seg = query_html.find('a', class_ ="card-learn-more")
+    if url_seg == None:
+        # print("NO SUBSTITUTES FOUND")
+        new_query = re.search("(\S+)",query)
+        if new_query == None: return None
+        new_query = query[new_query.span()[1]:]
+        return get_substitute_list(new_query.lstrip())
+    
+    new_url = "https://foodsubs.com" + url_seg.attrs['href']
+    # print(new_url)
+    driver.get(new_url)
+    page_html = BeautifulSoup(driver.page_source, 'html.parser')
+    results_seg = page_html.find(lambda x: x.name == "div" and x.get('class') == ["ingredients-table"])
+
+    if results_seg == None:
+        new_query = re.search("(\S+)",query)
+        if new_query == None: return None
+        new_query = query[new_query.span()[1]:]
+        return get_substitute_list(new_query.lstrip())
+
+    results_seg = results_seg.findAll(lambda y: y.name == "div" and y.get('class') == ["row"])
+
+    if results_seg == None:
+        new_query = re.search("(\S+)",query)
+        if new_query == None: return None
+        new_query = query[new_query.span()[1]:]
+        return get_substitute_list(new_query.lstrip())
+    
+    # print(results_seg)
+
+    relevant = []
+
+    for ii in results_seg:
+        # print(ii.text)
+        if re.search("\d+\s+Cals.", ii.text) != None:
+            candidate_dict = {}
+            print(ii)
+            cd = ii.find("div", class_="col-md-3 sub-details sub-details-last")
+            if cd == None:
+                continue
+            candidate_dict["name"] = cd.find('a').text
+            candidate_dict["warning"] = ii.find("div", class_="sortable-column col-md-2").text
+            measurements = ii.findAll(lambda x: x.name == "div" and (x.get('class') == ['sortable-column', 'col-md-1'] or x.get('class') == ["col-md-fixed"]))
+            counter = 0
+            for mm in measurements:
+                if counter == 1:
+                    candidate_dict["calories"] = (mm.text, float(re.search("([\d\.]+)", mm.text).group(1)))
+                elif counter == 2:
+                    candidate_dict["salt"] = (mm.text, float(re.search("([\d\.]+)", mm.text).group(1)))
+                elif counter == 3:
+                    candidate_dict["fat"] = (mm.text, float(re.search("([\d\.]+)", mm.text).group(1)))
+                elif counter == 4:
+                    candidate_dict["cholesterol"] = (mm.text, float(re.search("([\d\.]+)", mm.text).group(1)))
+                elif counter == 8:
+                    candidate_dict["sugar"] = (mm.text, float(re.search("([\d\.]+)", mm.text).group(1)))
+                counter += 1
+            # print(candidate_dict)
+            if counter == 13:
+                relevant.append(candidate_dict)
+
+    return relevant
+
+# ranks from healthiest to least healthy
+# input is a list from the output of get_substitute_list
+def rankHealthy(subst:list):
+    temp_list = []
+    for sl in subst:
+        unhealth_score = 0
+        unhealth_score += sl['cholesterol'][1] * 2
+        unhealth_score += sl['fat'][1]
+        unhealth_score += sl['salt'][1]
+        unhealth_score += sl['sugar'][1]
+        unhealth_score /= sl['calories'][1]
+        temp_list.append((sl['name'], unhealth_score))
+    temp_list.sort(key=lambda x: x[1])
+
+    # print(temp_list)
+
+    res_list = []
+    for tl in temp_list:
+        res_list.append(tl[0])
+
+    return res_list
+
+# filters out ingredients with meat in them
+def getNonMeat(subst:list):
+    meat_labels = ['meat', 'pork', 'chicken', 'fish', 'beef', 'lamb']
+    nm_list = []
+    for sl in subst:
+        if not any(ml in sl['warning'] for ml in meat_labels):
+            nm_list.append(sl)
+    # print(nm_list)
+    return nm_list
+
+# filters out ingredients without meat in them
+def getMeat(subst:list):
+    meat_labels = ['meat', 'pork', 'chicken', 'fish', 'beef', 'lamb']
+    nm_list = []
+    for sl in subst:
+        if any(ml in sl['warning'] for ml in meat_labels):
+            nm_list.append(sl)
+    # print(nm_list)
+    return nm_list
+
+# filters out ingredients with gluten in them
+def getGlutenFree(subst:list):
+    ng_list = []
+    for sl in subst:
+        if not 'gluten' in sl['warning']:
+            ng_list.append(sl)
+
+    return ng_list
+
+# filters out ingredients with dairy in them
+def getDairyFree(subst:list):
+    nd_list = []
+    for sl in subst:
+        if not 'dairy' in sl['warning']:
+            nd_list.append(sl)
+
+    return nd_list
+
 def get_substitute(query:str):
     query = re.sub("[.,;!]", "", query)
     # chrome_options = Options()
@@ -192,7 +325,7 @@ def makeHealthy(pipe2, ingredients: list, main_action: str, action_priority_list
         if isMeat > 0.8 and isFish < 0.2 and not 'turkey' in ingr.main_comp.lower() and not 'chicken' in ingr.main_comp.lower():
             new_instructions.append("Instead of " + ingr.main_comp + ", it would be healthier to use chicken or turkey (we will default to chicken). You can use the same amount (" + getQuantityString(ingr, 1) + "), though it may take longer to cook than red meats since you don't want it \"rare.\"")
             num_subs += 1
-            ingr.main_comp = "chicken"
+            # ingr.main_comp = "chicken"
             continue
         # print(getQuantityString(ingr, 0.5))
         
@@ -232,8 +365,12 @@ def makeHealthy(pipe2, ingredients: list, main_action: str, action_priority_list
             if ingr.main_comp in ingr_seen:
                 continue
             # find a substitution for an untransformed ingredient
-            new_sub = getSubList(ingr.main_comp, ["healthy"])[0]
-            new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
+            # new_sub = getSubList(ingr.main_comp, ["healthy"])[0]
+            sub_list = get_substitute_list(ingr.main_comp)
+            if sub_list == None: continue
+            sub_list = rankHealthy(sub_list)
+            if len(sub_list) < 1: continue
+            new_instructions.append("You could substitute " + ingr.main_comp + " with " + sub_list[0].lower() + ".")
             num_subs += 1
             if num_subs >= min_transforms:
                 break 
@@ -284,7 +421,7 @@ def makeUnhealthy(pipe2, ingredients: list, main_action: str, action_priority_li
         if isFish > 0.8 or (isMeat > 0.8 and (isWhiteMeat > isRedMeat or "chicken" in ingr.main_comp.lower())):
             new_instructions.append("Instead of " + ingr.main_comp + ", it would be less healthy to use a red meat like beef, pork, lamb, etc. We'll default to beef. You can use the same amount (" + getQuantityString(ingr, 1) + "). Cooking time is up to you depending on how you want your meat done (well-done, medium, rare, etc.).")
             num_subs += 1
-            ingr.main_comp = "beef"
+            # ingr.main_comp = "beef"
             continue
         # print(getQuantityString(ingr, 0.5))
         
@@ -327,8 +464,13 @@ def makeUnhealthy(pipe2, ingredients: list, main_action: str, action_priority_li
             if ingr.main_comp in ingr_seen:
                 continue
             # find a substitution for an untransformed ingredient
-            new_sub = getSubList(ingr.main_comp, ["unhealthy"])[0]
-            new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
+            # new_sub = getSubList(ingr.main_comp, ["unhealthy"])[0]
+            sub_list = get_substitute_list(ingr.main_comp)
+            if sub_list == None: continue
+            sub_list = rankHealthy(sub_list)
+            if len(sub_list) < 1: continue
+            new_instructions.append("You could substitute " + ingr.main_comp + " with " + sub_list[-1].lower() + ".")
+            # new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
             num_subs += 1
             if num_subs >= min_transforms:
                 break 
@@ -375,11 +517,11 @@ def makeVeg(pipe2, ingredients: list, main_action: str, action_priority_list: li
         if isMeat > 0.8 or isFish > 0.8:
             new_instructions.append("Instead of " + ingr.main_comp + ", use either tofu or eggplant. We will default to tofu for fish and eggplant for other meats, but either could be used. You can use the same amount (" + getQuantityString(ingr, 1) + "). These usually take around 20-35 minutes to cook depending on the method, but are likely fine with the original time specified by the recipe.")
             num_subs += 1
-            if isMeat > isFish:
-                ingr.main_comp = "eggplant"
-            else:
-                ingr.main_comp = "tofu"
-            continue
+            # if isMeat > isFish:
+            #     ingr.main_comp = "eggplant"
+            # else:
+            #     ingr.main_comp = "tofu"
+            # continue
         # print(getQuantityString(ingr, 0.5))
         
         # go through healthy ingr subs and do those substitutions
@@ -418,8 +560,14 @@ def makeVeg(pipe2, ingredients: list, main_action: str, action_priority_list: li
             if ingr.main_comp in ingr_seen:
                 continue
             # find a substitution for an untransformed ingredient
-            new_sub = getSubList(ingr.main_comp, ["vegetarian"])[0]
-            new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
+            # new_sub = getSubList(ingr.main_comp, ["vegetarian"])[0]
+            sub_list = get_substitute_list(ingr.main_comp)
+            if sub_list == None: continue
+            sub_list = getNonMeat(sub_list)
+            sub_list = rankHealthy(sub_list)
+            if len(sub_list) < 1: continue
+            new_instructions.append("You could substitute " + ingr.main_comp + " with " + sub_list[0].lower() + ".")
+            # new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
             num_subs += 1
             if num_subs >= min_transforms:
                 break 
@@ -433,7 +581,7 @@ def makeVeg(pipe2, ingredients: list, main_action: str, action_priority_list: li
 # try to determine main ingredient through matching ingredients to the recipe name. look for common meat substitutes like tofu, eggplant, mushroom, etc. before trying that, as this is more likely to be a good transformation
 # once the main ingredient is identified, figure out what meat it should be substituted for. probably default to chicken
 # make misc other changes like adding citrus or changing any substitutes to the original thing they are replacing
-def makeNonVeg(ingredients: list, main_action: str, action_priority_list: list, recipe_name: str):
+def makeNonVeg(pipe2, ingredients: list, main_action: str, action_priority_list: list, recipe_name: str):
     new_instructions = []
 
     min_transforms = 1
@@ -491,8 +639,14 @@ def makeNonVeg(ingredients: list, main_action: str, action_priority_list: list, 
             if ingr.main_comp in ingr_seen:
                 continue
             # find a substitution for an untransformed ingredient
-            new_sub = getSubList(ingr.main_comp, ["non-veg"])[0]
-            new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
+            # new_sub = getSubList(ingr.main_comp, ["non-veg"])[0]
+            sub_list = get_substitute_list(ingr.main_comp)
+            if sub_list == None: continue
+            sub_list = getMeat(sub_list)
+            sub_list = rankHealthy(sub_list)
+            if len(sub_list) < 1: continue
+            new_instructions.append("You could substitute " + ingr.main_comp + " with " + sub_list[0].lower() + ".")
+            # new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
             num_subs += 1
             if num_subs >= min_transforms:
                 break 
@@ -543,7 +697,7 @@ def makeInd(pipe2, ingredients: list, main_action: str, action_priority_list: li
         if isFruit > 0.8:
             new_instructions.append("Instead of " + ingr.main_comp + ", use tamarind. You can use the same amount (" + getQuantityString(ingr, 1) + ").")
             num_subs += 1
-            ingr.main_comp = "tamarind"
+            # ingr.main_comp = "tamarind"
             
             continue
         # print(getQuantityString(ingr, 0.5))
@@ -584,8 +738,14 @@ def makeInd(pipe2, ingredients: list, main_action: str, action_priority_list: li
             if ingr.main_comp in ingr_seen:
                 continue
             # find a substitution for an untransformed ingredient
-            new_sub = getSubList(ingr.main_comp, ["indian"])[0]
-            new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
+            # new_sub = getSubList(ingr.main_comp, ["indian"])[0]
+            sub_list = get_substitute_list(ingr.main_comp)
+            if sub_list == None: continue
+            # sub_list = getNonMeat(sub_list)
+            sub_list = rankHealthy(sub_list)
+            if len(sub_list) < 1: continue
+            new_instructions.append("You could substitute " + ingr.main_comp + " with " + sub_list[0].lower() + ".")
+            # new_instructions.append("You could substitute " + ingr.main_comp + " with " + new_sub.lower() + ".")
             num_subs += 1
             if num_subs >= min_transforms:
                 break 
@@ -597,7 +757,7 @@ def makeInd(pipe2, ingredients: list, main_action: str, action_priority_list: li
 # makeInd(ingredients, main_action, action_priority_list)
 
 ### CHANGE PORTIONS
-def getNewPortions(ingredients:list, multiplier: float):
+def getNewPortions(pipe2, ingredients:list, multiplier: float):
     new_ingr = []
     for ingr in ingredients:
         newQ = None
@@ -614,3 +774,62 @@ def getNewPortions(ingredients:list, multiplier: float):
         print(ni)
 
     return new_ingr
+
+### DAIRY FREE
+
+
+def makeDairyFree(pipe2, ingredients: list, main_action: str, action_priority_list: list):
+    new_instructions = []
+
+    dairy_keywords = ['milk', 'cream', 'cheese', 'half & half', 'half and half', 'butter', 'whey', 'lactose', 'yogurt']
+
+    # now, go through the ingredients
+
+    for ingr in ingredients:
+        for hk in dairy_keywords:
+            if hk in ingr.main_comp:
+                
+                sub_list = get_substitute_list(ingr.main_comp)
+                if sub_list == None: continue
+                sub_list = getDairyFree(sub_list)
+                if len(sub_list) < 1: continue
+                sub_list = rankHealthy(sub_list)
+
+                ingr_res = "You could substitute " + ingr.main_comp + " with " + sub_list[0] + ". "
+
+                new_instructions.append(ingr_res)
+                break
+
+    for abc in new_instructions:
+        print(abc)
+    return new_instructions
+
+### GLUTEN FREE
+
+
+def makeGlutenFree(pipe2, ingredients: list, main_action: str, action_priority_list: list):
+    new_instructions = []
+
+    gluten_keywords = ['wheat', 'flour', 'rye', 'barley', 'malt', 'starch', 'pasta', 'spaghetti', 'ravioli', 'dumpling', 'ramen', 'soba', 'udon', 'bread', 'tortilla', 'crumb', 'toast', 
+                       'beer', 'pita', 'oats', 'oatmeal', 'bagel', 'muffin', 'naan', 'biscuit', 'roux']
+
+    # now, go through the ingredients
+
+    for ingr in ingredients:
+        for hk in gluten_keywords:
+            if hk in ingr.main_comp:
+                
+                sub_list = get_substitute_list(ingr.main_comp)
+                if sub_list == None: continue
+                sub_list = getGlutenFree(sub_list)
+                if len(sub_list) < 1: continue
+                sub_list = rankHealthy(sub_list)
+
+                ingr_res = "You could substitute " + ingr.main_comp + " with " + sub_list[0] + ". "
+
+                new_instructions.append(ingr_res)
+                break
+
+    for abc in new_instructions:
+        print(abc)
+    return new_instructions

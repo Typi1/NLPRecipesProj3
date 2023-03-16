@@ -12,8 +12,9 @@ import transformers as tra
 import re
 import steps_parser_ver2
 import ingredients_parser
+import recipe_transformer
 import doQuestion3
-from doQuestion6 import goal6
+import doQuestion6
 import determineVague
 
 ## FUNCTIONS FOR WEBSCRAPING
@@ -358,6 +359,11 @@ word_place_dic = {
     "thirtieth": 30
 }
 
+def readFloat(text:str):
+    try:
+        return float(text)
+    except:
+        return None
 
 ## THIS IS THE CLASS THAT CONTAINS ALL OF THE CODE FOR CONVERSATION
 ## CREATING AN INSTANCE OF IT STARTS A CONVERSATION
@@ -410,6 +416,9 @@ class RecipeBot():
             temp.append(step.original_text)
         self.steps = temp
         # print(self.steps)
+
+        (self.tools, _, self.main_action) = recipe_transformer.get_Tools_Actions_List(self.depgram, self.steps_data)
+
         # starting the conversation with the user
         print(f"{self.name}: Alright, '{self.recipe_name}' has been booted up! What do you want to do?")
         self.begin_conversation()
@@ -417,8 +426,8 @@ class RecipeBot():
     def end_conversation(self):
         r = None
         # This loop forces the user to say yes or no
-        while not re.search("^yes", r.lower()) and not re.search("^no", r.lower()):
-            q = "Looks like we went through the entire recipe, anything else I can do for you? (Yes/No)\n"
+        while r == None or (not re.search("^yes", r.lower()) and not re.search("^no", r.lower())):
+            q = "Are you sure you are done with the recipe? (Yes/No)\n"
             print(f"{self.name}: {q}")
 
             r = input("User: ")
@@ -428,31 +437,217 @@ class RecipeBot():
                 print(f"{self.name}: Sorry, '{r}' is not a valid input")
 
 
-        if re.search("^yes", r.lower()): 
-            return self.default()
+        if re.search("^no", r.lower()): 
+            return self.begin_conversation()
         else:
             # end bot
             print(f"{self.name}: Sounds good, enjoy your meal!\n")
             return
+
+    # EDIT TO CHANGE TO NEW FRAMEWORK [2]
     def begin_conversation(self):
         r = None
         # This loop forces the user to either start with the ingredient list or recipe steps
-        while r != '1' and r != '2':
-            print(f"{self.name}: Type '1' to go over ingredients list or type '2' to go over the recipe steps.\n")
+        #while r != '1' and r != '2':
+        while not r in ['1', '2', '3', '4', '5', '6', '7']: 
+            # print(f"{self.name}: Type '1' to go over ingredients list or type '2' to go over the recipe steps.\n")
+
+            print(  f"{self.name}: Type a number from '1' to '7' corresponding to the action you want to take: \
+                    \n\tType '1' to view the ingredients list. \
+                    \n\tType '2' to view the list of tools and appliances needed. \
+                    \n\tType '3' to view the list of steps. \
+                    \n\tType '4' to change some aspect of the recipe (transform). \
+                    \n\tType '5' to see our ingredient data structure's collected information. \
+                    \n\tType '6' to see our steps data structure's collected information. \
+                    \n\tType '7' to quit the program.")
 
             r = input("User: ")
             print("\n")
             
-            if r != '1' and r != '2': 
+            if not r in ['1', '2', '3', '4', '5', '6', '7']: 
                 print(f"{self.name}: Sorry, '{r}' is not a valid input")
 
 
         if r == '1': 
             # tells the bot to print the recipe steps. The "True" input is so the computer can diferentiate betweeen
             return self.print_ingredients(True)
+        if r == '2':
+            # print the list of all of the tools
+            return self.print_tools()
+        if r == '3':
+            # print all of the steps in text
+            return self.print_all_steps()
+        if r == '4':
+            # do the transformation prompts and stuff
+            return self.transform()
+        if r == '5':
+            # print the ingredients data structure
+            return self.print_ingredients_data()
+        if r == '6':
+            # print the steps data structure
+            return self.print_steps_data()
         else:
-            # tells the bot to print the step curr_step indexes
-            return self.print_step()
+            # end the program
+            return self.end_conversation()
+        
+    # branching hub similar to begin_conversation, allowing one to access the different transformations
+    def transform(self):
+        r = None
+        # This loop forces the user to choose a transformation to apply
+        while not r in ['1', '2', '3', '4', '5', '6', '7', '8', '9']: 
+            # print(f"{self.name}: Type '1' to go over ingredients list or type '2' to go over the recipe steps.\n")
+
+            print(  f"{self.name}: Type a number from '1' to '8' corresponding to the transformation you want to make, or '9' if you want to exit.: \
+                    \n\tType '1' to make vegetarian. \
+                    \n\tType '2' to make non-vegetarian. \
+                    \n\tType '3' to make healthier. \
+                    \n\tType '4' to make unhealthier. \
+                    \n\tType '5' to make the cuisine style more Indian. \
+                    \n\tType '6' to change the quantity of the recipe. \
+                    \n\tType '7' to make lactose-free. \
+                    \n\tType '9' if you don't want to make a transformation.")
+
+            r = input("User: ")
+            print("\n")
+            
+            if not r in ['1', '2', '3', '4', '5', '6', '7', '8', '9']: 
+                print(f"{self.name}: Sorry, '{r}' is not a valid input")
+
+
+        if r == '1': 
+            # vegetarian transform
+            print(f"{self.name}: Here are some recommendations for what to do to make this vegetarian-friendly: ")
+            recipe_transformer.makeVeg(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+
+            print(f"{self.name}: Input anything to continue.\n")
+
+            r = input("User: ")
+            print("\n")
+
+            return self.after_transform()
+        if r == '2':
+            # non-veg transform
+            print(f"{self.name}: Here are some recommendations for what to do to make this less vegetarian: ")
+            recipe_transformer.makeNonVeg(self.zero_shot_pipe, self.ingredients_data, self.main_action, None, self.recipe_name)
+
+            print(f"{self.name}: Input anything to continue.\n")
+
+            r = input("User: ")
+            print("\n")
+
+            return self.after_transform()
+        if r == '3':
+            # healthy transform
+            print(f"{self.name}: Here are some recommendations for what to do to make this healthier: ")
+            recipe_transformer.makeHealthy(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+
+            print(f"{self.name}: Input anything to continue.\n")
+
+            r = input("User: ")
+            print("\n")
+
+            return self.after_transform()
+        if r == '4':
+            # unhealthy transform
+            print(f"{self.name}: Here are some recommendations for what to do to make this less healthy: ")
+            recipe_transformer.makeUnhealthy(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+
+            print(f"{self.name}: Input anything to continue.\n")
+
+            r = input("User: ")
+            print("\n")
+
+            return self.after_transform()
+        if r == '5':
+            # Indian transform
+            print(f"{self.name}: Here are some recommendations for what to do to make this less healthy: ")
+            recipe_transformer.makeInd(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+
+            print(f"{self.name}: Input anything to continue.\n")
+
+            r = input("User: ")
+            print("\n")
+
+            return self.after_transform()
+        if r == '6':
+            # quantity transform
+            ar = None
+            while ar == None:
+                print(f"{self.name}: By what factor do you want to increase/decrease the amount of food created? Please type a number in decimal format. ")
+
+                ar = input("User: ")
+                print("\n")
+                temp_r = ar
+
+                ar = readFloat(ar)
+            
+                if r == None:
+                    print(f"{self.name}: Sorry, '{temp_r}' is not a valid input")
+            # if we get past that loop, then ar will be the factor we multiply by 
+            print(f"{self.name}: Ok, here's our modified ingredients data structure list for '{self.recipe_name}'.\n")
+            counter = 1
+            modified_ingr_data = recipe_transformer.getNewPortions(self.zero_shot_pipe, self.ingredients_data, ar)
+            for ing in modified_ingr_data:
+                print(f"{counter}. {ing}")
+                counter += 1
+                print()
+
+            print(f"{self.name}: Input anything to continue.\n")
+
+            r = input("User: ")
+            print("\n")
+
+            return self.after_transform()
+        if r == '7':
+            # lactose-free transform
+            print(f"{self.name}: Here are some recommendations for what to do to make this lactose-free: ")
+            recipe_transformer.makeDairyFree(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+
+            print(f"{self.name}: Input anything to continue.\n")
+
+            r = input("User: ")
+            print("\n")
+
+            return self.after_transform()
+        if r == '8':
+            # gluten-free transform
+            print(f"{self.name}: Here are some recommendations for what to do to make this gluten-free: ")
+            recipe_transformer.makeGlutenFree(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+
+            print(f"{self.name}: Input anything to continue.\n")
+
+            r = input("User: ")
+            print("\n")
+
+            return self.after_transform()
+        else:
+            # end the program
+            return self.begin_conversation()
+
+    # branching hub after performing a transformation
+    def after_transform(self):
+        r = None
+        
+        while not r in ['1', '2']: 
+            # print(f"{self.name}: Type '1' to go over ingredients list or type '2' to go over the recipe steps.\n")
+
+            print(  f"{self.name}: Type either '1' or '2' corresponding to the action you want to take: \
+                    \n\tType '1' to perform a different transformation. \
+                    \n\tType '2' if you are done performing transformations and want to view the original ingredients or steps.")
+
+            r = input("User: ")
+            print("\n")
+            
+            if not r in ['1', '2']: 
+                print(f"{self.name}: Sorry, '{r}' is not a valid input")
+
+
+        if r == '1': 
+            # calls transform again
+            return self.transform()
+        else:
+            # go back to the main branching hub
+            return self.begin_conversation()
     
     # This function controls the flow of conversation. After the bot has answered a user request, this function should be called.
     def default(self, state = None):
@@ -637,7 +832,7 @@ class RecipeBot():
                 # print(zs_scores[zs_best])
                 if zs_scores[zs_best] > 10:
                     # print(zs_best)
-                    ans = goal6(self.zero_shot_pipe, self.depgram, user_input, self.ingredients,  self.steps_data[self.curr_step + 1], zs_best)
+                    ans = doQuestion6.goal6(self.zero_shot_pipe, self.depgram, user_input, self.ingredients,  self.steps_data[self.curr_step + 1], zs_best)
                     if ans == None:
                         return self.default("confused")
                     else:
@@ -673,39 +868,114 @@ class RecipeBot():
             counter += 1
             print()
 
-        #if the current step is at index 0 and the print_ingredients function was called by typing 1, ask the following
-        if self.curr_step == 0 and first:
-            print(f"{self.name}: Ok, would you like me to start going over the recipe steps?\n")
-        # If the current step is the last step, then go to the "done" state of the self.default function
-        elif self.curr_step+2 > len(self.steps):
-            return self.default("done")
-        # If none of the above, than the user has seen the current step, so we need to ask if they want to see the next step
-        else: 
-            print(f"{self.name}: Ok, should I continue to step #{self.curr_step+2} of the recipe?\n")
-        
+        print(f"{self.name}: Input anything to continue.\n")
+
         r = input("User: ")
         print("\n")
 
-        if re.search("^no", r.lower()):
-        # If the user does not want to see the recipe step suggested, go back to default state to ask the user what they want 
-            return self.default()
-        elif re.search("^yes", r.lower()):
-            # if "first" is false and print_ingredients wasn't called by typing 1, then the user will want to see the next step
-            if not first:
-                self.curr_step += 1
-            return self.print_step()
-        else:
-            return self.interpret(r)
+        return self.begin_conversation()
+
+        # #if the current step is at index 0 and the print_ingredients function was called by typing 1, ask the following
+        # if self.curr_step == 0 and first:
+        #     print(f"{self.name}: Ok, would you like me to start going over the recipe steps?\n")
+        # # If the current step is the last step, then go to the "done" state of the self.default function
+        # elif self.curr_step+2 > len(self.steps):
+        #     return self.default("done")
+        # # If none of the above, than the user has seen the current step, so we need to ask if they want to see the next step
+        # else: 
+        #     print(f"{self.name}: Ok, should I continue to step #{self.curr_step+2} of the recipe?\n")
+        
+        # r = input("User: ")
+        # print("\n")
+
+        # if re.search("^no", r.lower()):
+        # # If the user does not want to see the recipe step suggested, go back to default state to ask the user what they want 
+        #     return self.default()
+        # elif re.search("^yes", r.lower()):
+        #     # if "first" is false and print_ingredients wasn't called by typing 1, then the user will want to see the next step
+        #     if not first:
+        #         self.curr_step += 1
+        #     return self.print_step()
+        # else:
+        #     return self.interpret(r)
     
-    def print_steps(self):
-        print
+    # def print_steps(self):
+    #     print
+
+    # This function prints the tool list and follows up appropriately
+    def print_tools(self):
+        # Printing the tool list
+        print(f"{self.name}: Ok, here are the tools for '{self.recipe_name}'.\n")
+        counter = 1
+        for ing in self.tools:
+            print(f"{counter}. {ing}")
+            counter += 1
+            print()
+
+        print(f"{self.name}: Input anything to continue.\n")
+
+        r = input("User: ")
+        print("\n")
+
+        return self.begin_conversation()
+    
+    # This function prints the step list and follows up appropriately
+    def print_all_steps(self):
+        # Printing the step list
+        print(f"{self.name}: Ok, here are the steps for '{self.recipe_name}'.\n")
+        counter = 1
+        for ing in self.steps:
+            print(f"{counter}. {ing}")
+            counter += 1
+            print()
+
+        print(f"{self.name}: Input anything to continue.\n")
+
+        r = input("User: ")
+        print("\n")
+
+        return self.begin_conversation()
+    
+    # This function prints the step list and follows up appropriately
+    def print_ingredients_data(self):
+        # Printing the step list
+        print(f"{self.name}: Ok, here's our ingredients data structure list for '{self.recipe_name}'.\n")
+        counter = 1
+        for ing in self.ingredients_data:
+            print(f"{counter}. {ing}")
+            counter += 1
+            print()
+
+        print(f"{self.name}: Input anything to continue.\n")
+
+        r = input("User: ")
+        print("\n")
+
+        return self.begin_conversation()
+    
+    # This function prints the step list and follows up appropriately
+    def print_steps_data(self):
+        # Printing the step list
+        print(f"{self.name}: Ok, here's our steps data structure list for '{self.recipe_name}'.\n")
+        counter = 1
+        for ing in self.steps_data:
+            print(f"{counter}. {self.steps_data[ing]}")
+            counter += 1
+            print()
+
+        print(f"{self.name}: Input anything to continue.\n")
+
+        r = input("User: ")
+        print("\n")
+
+        return self.begin_conversation()
 
     # This function prints the current step and calls default
     def print_step(self):
         print(f"{self.name}: Here's step #{self.curr_step + 1}\n")
         print(f"{self.steps[self.curr_step]}\n")
 
-        # Checks to see if we are at the end of the recipe steps to decide wether to call default with "done" or not
+        # Checks to see if we are at the end of the recipe steps to decide whether to call default with "done" or not
         if self.curr_step+2 > len(self.steps):
             return self.default("done")
         else:
