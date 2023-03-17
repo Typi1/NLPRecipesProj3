@@ -17,47 +17,57 @@ MealMaster is a simple recipe transformation and reference tool. Given a provide
 7. Can give a modified ingredient list for the recipe with the quantities all multiplied by a given value (ex: make 1.5x the original amount)
 8. Can make the recipe lactose-free or gluten-free
 
-## 2) How it's able to do what it does
+## 2) How to use the program
 
-The way MealMaster works is through:
-1. Clever conversational design
-2. A system of zero-shot classification that determines what the user input means
-3. Separate functions that do each of the tasks detailed in Section 1 (Description Section)
+	- A few preliminary notes:
+		- Sometimes, the program will ask you to "Input anything to continue." If you just press Enter, you can proceed with the program. This intermediary step is primarily so that the output of the previous action isn't immediately pushed too far up by the next prompt text.
+		- Transformations will not carry over across different transformation attempts:
+			- For example, doubling the amount of ingredients and then making the recipe vegetarian will not then print out a vegetarian version of the recipe with double the ingredients, just a vegetarian version of the recipe since the multiplier isn't saved.
+				- This is primarily to allow the user to try different transformations on the original recipe without making it unrecognizable through countless transformations, and so it is easier to cross-reference with the original recipe text.
+			
 
-### Clever conversational design
-Firstly, we implemented a strict conversational flow to induce our users to only input text that Mealmaster can handle. The beggining of the conversation starts with MealMaster prompting the user to either type '1' to see the ingredients list or '2' to recipe steps. After this initial interaction, the bot will fall into the following loop: default() -> interpret() -> a task function -> default(). This loop helps frame the conversation so that the user continually types in commands for MealMaster, which is what the bot was built to handle.
+	- First, run the file MealMasterProj3.py to start the program.
+	- Upon loading, MealMaster will ask you to give it a URL from allrecipes.com. Paste or type a valid URL and press Enter.
+	- It will then process the recipe. This may take a couple minutes. There will be a clear message indicating when it is done processing ("Alright, [recipe_name] has been booted up!").
+	- From here, you can choose to do multiple actions from a MAIN ACTION HUB.
 
-Now 
+#	- MAIN ACTION HUB
+		- If you type in "1" and then press Enter, MealMaster will provide the ingredients as given in the recipe.
+		- If you type in "2" and then press Enter, MealMaster will provide a list of tools and kitchen appliances needed for the recipe.
+		- If you type in "3" and then press Enter, MealMaster will provide a list of all the steps as given in the recipe.
+		- If you type in "5" and then press Enter, MealMaster will print out a human-readable version of our parsed ingredients data structure for grading reference.
+		- If you type in "6" and then press Enter, MealMaster will print out a human-readable version of our parsed steps data structure for grading reference.
+		- If you type in "7" and then press Enter, MealMaster will ask you whether you want to exit the program. 
+			- If you reply "yes", it will end the program. 
+			- If you reply, "no", it will continue back to MAIN ACTION HUB.
+		- If you type in "4" and then press Enter, MealMaster will take you to an option select for what kind of transformation you want to apply to the recipe (see TRANSFORMATION HUB).
+		
+		- If the action performed isn't the ones indicated by '4' or '7', the program will return to MAIN ACTION HUB after.
 
-Default():
-Essentially, what default() does is that it decides to continue the conversation by calling interpret() or to end the conversation, while aslo dealing with some edge cases. If default() decided to continue the conversation, it will print a message of the sorts "What else would you like me to do?" and then call interpret(). If default() decides to end the conversation, then it will first ask if the user has any last questions before ending the conversation for good.
+#	- TRANSFORMATION HUB	
+		- If you type in "1" and then press Enter, MealMaster will print a list of actions one could take to make the recipe vegetarian-friendly.
+		- If you type in "2" and then press Enter, MealMaster will print a list of actions one could take to make the recipe non-vegetarian.
+		- If you type in "3" and then press Enter, MealMaster will print a list of actions one could take to make the recipe healthier.
+		- If you type in "4" and then press Enter, MealMaster will print a list of actions one could take to make the recipe less healthy.
+		- If you type in "5" and then press Enter, MealMaster will print a list of actions one could take to make the recipe more like Indian cuisine.
+		- If you type in "6" and then press Enter, MealMaster will ask you to type a number in decimal form that will be the multiplier of how much more/less you want of the recipe. 
+			- For example, "2" would double the ingredients used in the recipe, and "0.5" would half the ingredients used in the recipe.
+			- After typing in the number and pressing Enter, a modified version of our ingredients data structure will be printed with the quantities changed by the given amount.
+		- If you type in "7" and then press Enter, MealMaster will print a list of actions one could take to make the recipe lactose-free.
+		- If you type in "8" and then press Enter, MealMaster will print a list of actions one could take to make the recipe gluten free.
+		- If you type in "9" and then press Enter, MealMaster will go back to MAIN ACTION HUB.
 
-The two edge cases default handles are the following: (1) the bot can't figure out what the user wants and (2) the user typed nothing. In both cases, default() prints a message asking the user to repeat themselves before calling interpret() again.
-
-Interpret():
-The interpret() function is the most important function of the bot. It recieves as input whatever the user typed and calls the correct function to respond. In a high level, here is what interpret() does:
-1. From the user input, interpret() determines what task the user wants MealMaster to do;
-2. Given the task, interpret() checks if the task is possible (ex: You can't go to the 100th step if the recipe only has 20 steps)
-3. If the task is possible, interpret() changes the corresponding class variables needed to complete the task (for instance, if the user asks to go to the next step, a class variable that points to the current step has to change) and then it calls the function that does the requested task (in the example I gave, it would call print_step(), which prints the current step the aformentioned class variable is pointing to).
-4. If the task is not possible, then print an appropriate message and call default()
-
-Additionally, if interpret() can't figure out what task the user wants to be done (or if the user types nothing), it will call default() with the needed input to trigger a "confused script" (have the bot ask "Could you please repeat?")
-
-Task Functions:
-Task functions simply do one of the tasks detailed in Section 1 and then call the default() function. These functions do various different things to accomplish their respective task. From simply printing messages, to doing webscraping, to using Stanza (a python NLP package) to parse the steps and ingredients for information.
-
-### Zero-Shot Classification
-Zero-shot classification is used for interpret() to map user inputs to the task functions. By using a Large Language Model (LLM) from HuggingFace and a given label, we are able to calculate a "confidence score" of how likely the LLM thinks the label describes the user input. We use a set of labels for each task and determine what task the user input is requesting by adding up the confidence scores and then picking the highest sum. Calculating the different confidence scores is what makes MealMaster take a bit to respond to each user input, however, we believe this is worth it since (in theory) this is more robust than hard coded heuristics.
-Lastly, if all of the confidence score sums are low, that is when interpret() calls default() to trigger the "confused script".
-
-** in practice, interpret() actually uses a combination of zero-shot and hard coded heuristics to determine what task the user is requesting, however, zero-shot definetly does the bulk of the work. Furthermore, setting up the zero-shot system was far from trivial and required a lot of testing to optimize the label lists, determine the method of summing up the confidence scores, and choosing the lower bound which determines wether the "confused script" is triggered.
-
+		- Note that after any action from the TRANSFORMATION HUB that isn't '9', a prompt will appear asking one to choose if they want to perform a different transformation or if they are done with transformations.
+			- If you type in '1' and then press Enter, MealMaster will take you back to TRANSFORMATION HUB.
+			- If you type in '2' and then press Enter, MealMaster will take you back to MAIN ACTION HUB.
+				- This may be useful if you want to see the original ingredients and/or recipe steps.
+		
 
 ## 3) Which Recipes MealMaster Can Use
 
 You can give MealMaster any url from allrecipes.com
 
-Any other recipe webiste is not guaranteed to work.
+Any other recipe website is not guaranteed to work.
 
 
 ## 4) Installation
@@ -67,4 +77,4 @@ Any other recipe webiste is not guaranteed to work.
 
 REQUIRES Python 3.10 OR LATER TO RUN
 
-Github repository: https://github.com/Typi1/NLPRecipes
+Github repository: https://github.com/Typi1/NLPRecipesProj3
