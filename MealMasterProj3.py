@@ -27,7 +27,7 @@ def get_dict(url:str):
     try:
         recipe_html = get_soup(url)
     except:
-        print("This is not a valid link! Please provide a URL.\n")
+        print("This is not a valid link! Please provide a URL from allrecipes.com.\n")
         return None
 
     recipe_dict = None
@@ -37,7 +37,7 @@ def get_dict(url:str):
     try:
         candidate_json = recipe_html.find_all("script", {"type": "application/ld+json"})
     except:
-        print("Recipe not found! Please provide a different URL.\n")
+        print("Recipe not found! Please provide a different URL from allrecipes.com.\n")
         return None
 
     for candidate in candidate_json:
@@ -73,7 +73,7 @@ def get_recipe(url:str):
         except:
             x = recipe[0][0]["recipeIngredient"]
     except:
-        print("Recipe not found! Please provide a different URL.\n")
+        print("Recipe not found! Please provide a different URL from allrecipes.com.\n")
         return None
 
     if recipe[0]:
@@ -376,7 +376,7 @@ class RecipeBot():
         r = None
         print(f"{self.name}: Hey there! I am the MealMaster, here to help you with all your cooking needs!")
         print(f"{self.name}: I can provide transformations on a recipe!")
-        print(f"{self.name}: Ready to cook a recipe? Please provide a URL.\n")
+        print(f"{self.name}: Ready to cook a recipe? Please provide a URL from allrecipes.com.\n")
         while r == None:
             url = input("User: ")
             print("\n")
@@ -420,7 +420,7 @@ class RecipeBot():
         (self.tools, _, self.main_action) = recipe_transformer.get_Tools_Actions_List(self.depgram, self.steps_data)
 
         # starting the conversation with the user
-        print(f"{self.name}: Alright, '{self.recipe_name}' has been booted up! What do you want to do?")
+        print(f"{self.name}: Alright, '{self.recipe_name}' has been booted up!")
         self.begin_conversation()
 
     def end_conversation(self):
