@@ -375,7 +375,7 @@ class RecipeBot():
         # asking for the url
         r = None
         print(f"{self.name}: Hey there! I am the MealMaster, here to help you with all your cooking needs!")
-        print(f"{self.name}: I can provide transformations on a recipe! Just be advised, on average I take 15 seconds to respond.")
+        print(f"{self.name}: I can provide transformations on a recipe!")
         print(f"{self.name}: Ready to cook a recipe? Please provide a URL.\n")
         while r == None:
             url = input("User: ")
@@ -505,6 +505,7 @@ class RecipeBot():
                     \n\tType '5' to make the cuisine style more Indian. \
                     \n\tType '6' to change the quantity of the recipe. \
                     \n\tType '7' to make lactose-free. \
+                    \n\tType '8' to make gluten-free. \
                     \n\tType '9' if you don't want to make a transformation.")
 
             r = input("User: ")
@@ -517,56 +518,101 @@ class RecipeBot():
         if r == '1': 
             # vegetarian transform
             print(f"{self.name}: Here are some recommendations for what to do to make this vegetarian-friendly: ")
-            recipe_transformer.makeVeg(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
-
-            print(f"{self.name}: Input anything to continue.\n")
-
-            r = input("User: ")
+            sugs = recipe_transformer.makeVeg(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+            counter = 1
+            for ss in sugs:
+                if ss == "":
+                    continue
+                print("\t" + str(counter) + ": " + ss)
+                counter += 1
+            if(counter == 1):
+                print("\n")
+                print(f"{self.name}: There doesn't seem like there is anything we need to do.")
             print("\n")
+            # print(f"{self.name}: Input anything to continue.\n")
+
+            # r = input("User: ")
+            # print("\n")
 
             return self.after_transform()
         if r == '2':
             # non-veg transform
             print(f"{self.name}: Here are some recommendations for what to do to make this less vegetarian: ")
-            recipe_transformer.makeNonVeg(self.zero_shot_pipe, self.ingredients_data, self.main_action, None, self.recipe_name)
-
-            print(f"{self.name}: Input anything to continue.\n")
-
-            r = input("User: ")
+            sugs = recipe_transformer.makeNonVeg(self.zero_shot_pipe, self.ingredients_data, self.main_action, None, self.recipe_name)
+            counter = 1
+            for ss in sugs:
+                if ss == "":
+                    continue
+                print("\t" + str(counter) + ": " + ss)
+                counter += 1
+            if(counter == 1):
+                print("\n")
+                print(f"{self.name}: There doesn't seem like there is anything we need to do.")
             print("\n")
+            # print(f"{self.name}: Input anything to continue.\n")
+
+            # r = input("User: ")
+            # print("\n")
 
             return self.after_transform()
         if r == '3':
             # healthy transform
             print(f"{self.name}: Here are some recommendations for what to do to make this healthier: ")
-            recipe_transformer.makeHealthy(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
-
-            print(f"{self.name}: Input anything to continue.\n")
-
-            r = input("User: ")
+            sugs = recipe_transformer.makeHealthy(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+            counter = 1
+            for ss in sugs:
+                if ss == "":
+                    continue
+                print("\t" + str(counter) + ": " + ss)
+                counter += 1
+            if(counter == 1):
+                print("\n")
+                print(f"{self.name}: There doesn't seem like there is anything we need to do.")
             print("\n")
+            # print(f"{self.name}: Input anything to continue.\n")
+
+            # r = input("User: ")
+            # print("\n")
 
             return self.after_transform()
         if r == '4':
             # unhealthy transform
             print(f"{self.name}: Here are some recommendations for what to do to make this less healthy: ")
-            recipe_transformer.makeUnhealthy(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
-
-            print(f"{self.name}: Input anything to continue.\n")
-
-            r = input("User: ")
+            sugs = recipe_transformer.makeUnhealthy(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+            counter = 1
+            for ss in sugs:
+                if ss == "":
+                    continue
+                print("\t" + str(counter) + ": " + ss)
+                counter += 1
+            if(counter == 1):
+                print("\n")
+                print(f"{self.name}: There doesn't seem like there is anything we need to do.")
             print("\n")
+            # print(f"{self.name}: Input anything to continue.\n")
+
+            # r = input("User: ")
+            # print("\n")
 
             return self.after_transform()
         if r == '5':
             # Indian transform
-            print(f"{self.name}: Here are some recommendations for what to do to make this less healthy: ")
-            recipe_transformer.makeInd(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
-
-            print(f"{self.name}: Input anything to continue.\n")
-
-            r = input("User: ")
+            print(f"{self.name}: Here are some recommendations for what to do to make this Indian-style: ")
+            sugs = recipe_transformer.makeInd(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+            counter = 1
+            for ss in sugs:
+                if ss == "":
+                    continue
+                print("\t" + str(counter) + ": " + ss)
+                counter += 1
+            if(counter == 1):
+                print("\n")
+                print(f"{self.name}: There doesn't seem like there is anything we need to do.")
             print("\n")
+            # print(f"{self.name}: Input anything to continue.\n")
+
+            # r = input("User: ")
+            # print("\n")
 
             return self.after_transform()
         if r == '6':
@@ -591,33 +637,52 @@ class RecipeBot():
                 print(f"{counter}. {ing}")
                 counter += 1
                 print()
+            # print("\n")
+            # print(f"{self.name}: Input anything to continue.\n")
 
-            print(f"{self.name}: Input anything to continue.\n")
-
-            r = input("User: ")
-            print("\n")
+            # r = input("User: ")
+            # print("\n")
 
             return self.after_transform()
         if r == '7':
             # lactose-free transform
             print(f"{self.name}: Here are some recommendations for what to do to make this lactose-free: ")
-            recipe_transformer.makeDairyFree(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
-
-            print(f"{self.name}: Input anything to continue.\n")
-
-            r = input("User: ")
+            sugs = recipe_transformer.makeDairyFree(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+            counter = 1
+            for ss in sugs:
+                if ss == "":
+                    continue
+                print("\t" + str(counter) + ": " + ss)
+                counter += 1
+            if(counter == 1):
+                print("\n")
+                print(f"{self.name}: There doesn't seem like there is anything we need to do.")
             print("\n")
+            # print(f"{self.name}: Input anything to continue.\n")
+
+            # r = input("User: ")
+            # print("\n")
 
             return self.after_transform()
         if r == '8':
             # gluten-free transform
             print(f"{self.name}: Here are some recommendations for what to do to make this gluten-free: ")
-            recipe_transformer.makeGlutenFree(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
-
-            print(f"{self.name}: Input anything to continue.\n")
-
-            r = input("User: ")
+            sugs = recipe_transformer.makeGlutenFree(self.zero_shot_pipe, self.ingredients_data, self.main_action, None)
+            counter = 1
+            for ss in sugs:
+                if ss == "":
+                    continue
+                print("\t" + str(counter) + ": " + ss)
+                counter += 1
+            if(counter == 1):
+                print("\n")
+                print(f"{self.name}: There doesn't seem like there is anything we need to do.")
+            
             print("\n")
+            # print(f"{self.name}: Input anything to continue.\n")
+
+            # r = input("User: ")
+            # print("\n")
 
             return self.after_transform()
         else:

@@ -66,7 +66,7 @@ def get_substitute_list(query:str):
         # print(ii.text)
         if re.search("\d+\s+Cals.", ii.text) != None:
             candidate_dict = {}
-            print(ii)
+            # print(ii)
             cd = ii.find("div", class_="col-md-3 sub-details sub-details-last")
             if cd == None:
                 continue
@@ -97,6 +97,7 @@ def get_substitute_list(query:str):
 def rankHealthy(subst:list):
     temp_list = []
     for sl in subst:
+        if sl['calories'][1] == 0: continue
         unhealth_score = 0
         unhealth_score += sl['cholesterol'][1] * 2
         unhealth_score += sl['fat'][1]
@@ -186,7 +187,8 @@ def get_substitute(query:str):
             # print()
         return substitutes
     else:
-        print('error??')
+        # print('error??')
+        pass
 
 def floatFromFractionString(frac: str):
     try:
@@ -246,7 +248,7 @@ def get_Tools_Actions_List(depgram, steps):
     all_tools = []
     all_actions = []
     for j in steps:
-        print(steps[j])
+        # print(steps[j])
         for aa in steps[j].actions:
             all_actions.append(steps[j].actions[aa][1].lower())
         for tt in steps[j].tools:
@@ -312,17 +314,20 @@ def makeHealthy(pipe2, ingredients: list, main_action: str, action_priority_list
     num_subs = 0 # counter for the number of substitutions made. if not at least 3 substitions are made, do some later
 
     ingr_seen = []
+    subst_seen = []
 
     for ingr in ingredients:
 
         # replace meats with healthier meats
         isMeat = checkMembership(pipe2, ingr.main_comp, 'meat')
         isFish = checkMembership(pipe2, ingr.main_comp, 'fish')
+        isFruit = checkMembership(pipe2, ingr.main_comp, 'fruit')
         # 'turkey' in ingr.main_comp
         # 'chicken' in ingr.main_comp
         # print(ingr.main_comp + ": " + str(isMeat))
         # print(ingr.main_comp + ": " + str(isFish))
-        if isMeat > 0.8 and isFish < 0.2 and not 'turkey' in ingr.main_comp.lower() and not 'chicken' in ingr.main_comp.lower():
+        if (isMeat > 0.8 and isFish < 0.2 and not 'turkey' in ingr.main_comp.lower() and not 'chicken' in ingr.main_comp.lower()) and isFruit < 0.5:
+            if "sauce" in ingr.main_comp.lower() or "broth" in ingr.main_comp.lower(): continue
             new_instructions.append("Instead of " + ingr.main_comp + ", it would be healthier to use chicken or turkey (we will default to chicken). You can use the same amount (" + getQuantityString(ingr, 1) + "), though it may take longer to cook than red meats since you don't want it \"rare.\"")
             num_subs += 1
             # ingr.main_comp = "chicken"
@@ -351,9 +356,24 @@ def makeHealthy(pipe2, ingredients: list, main_action: str, action_priority_list
                 for mm in modss:
                     ingr_res += "You can use a " + mm + " version of " + ingr.main_comp + " instead to make this healthier. "
                 for su in subss:
+                    if su in subst_seen:
+                        sub_list = get_substitute_list(ingr.main_comp)
+                        if sub_list == None: continue
+                        sub_list = rankHealthy(sub_list)
+                        if len(sub_list) < 1: continue
+                        counter = 0
+                        while counter < len(sub_list):
+                            if sub_list[counter].lower() in sub_list:
+                                counter += 1
+                        if counter >= len(sub_list): continue
+                        ingr_res += "You could substitute " + ingr.main_comp + " with " + sub_list[counter].lower() + ". "
+                        subst_seen.append(sub_list[counter].lower())
+                        continue
                     ingr_res += "You could substitute " + ingr.main_comp + " with " + su + ". "
+                    subst_seen.append(su)
                 for mu in multis:
-                    ingr_res += "If you don't want to replace " + ingr.main_comp + ", you could use " + str(mu) + " of the original amount: " + getQuantityString(ingr, mu) + ". "
+                    if getQuantityString(ingr,1) == "": continue
+                    ingr_res += "If you don't want to replace " + ingr.main_comp + ", you could use " + str(mu) + " of the original amount: "  + getQuantityString(ingr,1) + " (new amount: " + getQuantityString(ingr, mu) + "). "
 
                 new_instructions.append(ingr_res)
                 num_subs += 1
@@ -375,8 +395,8 @@ def makeHealthy(pipe2, ingredients: list, main_action: str, action_priority_list
             if num_subs >= min_transforms:
                 break 
 
-    for abc in new_instructions:
-        print(abc)
+    # for abc in new_instructions:
+    #     print(abc)
     return new_instructions
 
 ### MAKE UNHEALTHY
@@ -406,6 +426,7 @@ def makeUnhealthy(pipe2, ingredients: list, main_action: str, action_priority_li
     num_subs = 0 # counter for the number of substitutions made. if not at least 3 substitions are made, do some later
 
     ingr_seen = []
+    subst_seen = []
 
     for ingr in ingredients:
 
@@ -414,11 +435,13 @@ def makeUnhealthy(pipe2, ingredients: list, main_action: str, action_priority_li
         isFish = checkMembership(pipe2, ingr.main_comp, 'fish')
         isWhiteMeat = checkMembership(pipe2, ingr.main_comp, 'white meat')
         isRedMeat = checkMembership(pipe2, ingr.main_comp, 'red meat')
+        isFruit = checkMembership(pipe2, ingr.main_comp, 'fruit')
         # 'turkey' in ingr.main_comp
         # 'chicken' in ingr.main_comp
         # print(ingr.main_comp + ": " + str(isMeat))
         # print(ingr.main_comp + ": " + str(isFish))
-        if isFish > 0.8 or (isMeat > 0.8 and (isWhiteMeat > isRedMeat or "chicken" in ingr.main_comp.lower())):
+        if (isFish > 0.8 or (isMeat > 0.8 and (isWhiteMeat > isRedMeat or "chicken" in ingr.main_comp.lower()))) and isFruit < 0.5:
+            if "sauce" in ingr.main_comp.lower() or "broth" in ingr.main_comp.lower(): continue
             new_instructions.append("Instead of " + ingr.main_comp + ", it would be less healthy to use a red meat like beef, pork, lamb, etc. We'll default to beef. You can use the same amount (" + getQuantityString(ingr, 1) + "). Cooking time is up to you depending on how you want your meat done (well-done, medium, rare, etc.).")
             num_subs += 1
             # ingr.main_comp = "beef"
@@ -447,9 +470,24 @@ def makeUnhealthy(pipe2, ingredients: list, main_action: str, action_priority_li
                 for mm in modss:
                     ingr_res += "You can use a " + mm + " version of " + ingr.main_comp + " instead to make this unhealthier. "
                 for su in subss:
+                    if su in subst_seen:
+                        sub_list = get_substitute_list(ingr.main_comp)
+                        if sub_list == None: continue
+                        sub_list = rankHealthy(sub_list)
+                        if len(sub_list) < 1: continue
+                        counter = 0
+                        while counter < len(sub_list):
+                            if sub_list[counter].lower() in sub_list:
+                                counter += 1
+                        if counter >= len(sub_list): continue
+                        ingr_res += "You could substitute " + ingr.main_comp + " with " + sub_list[counter].lower() + ". "
+                        subst_seen.append(sub_list[counter].lower())
+                        continue
                     ingr_res += "You could substitute " + ingr.main_comp + " with " + su + ". "
+                    subst_seen.append(su)
                 for mu in multis:
-                    ingr_res += "Use more " + ingr.main_comp + ". You could use " + str(mu) + " of the original amount: " + getQuantityString(ingr, mu) + ". "
+                    if getQuantityString(ingr,1) == "": continue
+                    ingr_res += "Use more " + ingr.main_comp + ". You could use " + str(mu) + " of the original amount: "  + getQuantityString(ingr,1) + " (new amount: " + getQuantityString(ingr, mu) + "). "
 
                 new_instructions.append(ingr_res)
                 num_subs += 1
@@ -475,8 +513,8 @@ def makeUnhealthy(pipe2, ingredients: list, main_action: str, action_priority_li
             if num_subs >= min_transforms:
                 break 
 
-    for abc in new_instructions:
-        print(abc)
+    # for abc in new_instructions:
+    #     print(abc)
     return new_instructions
 
 
@@ -504,19 +542,28 @@ def makeVeg(pipe2, ingredients: list, main_action: str, action_priority_list: li
     num_subs = 0 # counter for the number of substitutions made. if not at least 3 substitions are made, do some later
 
     ingr_seen = []
+    subst_seen = []
 
     for ingr in ingredients:
 
         # replace meats with healthier meats
         isMeat = checkMembership(pipe2, ingr.main_comp, 'meat')
         isFish = checkMembership(pipe2, ingr.main_comp, 'fish')
+        isFruit = checkMembership(pipe2, ingr.main_comp, 'fruit')
         # 'turkey' in ingr.main_comp
         # 'chicken' in ingr.main_comp
         # print(ingr.main_comp + ": " + str(isMeat))
         # print(ingr.main_comp + ": " + str(isFish))
-        if isMeat > 0.8 or isFish > 0.8:
-            new_instructions.append("Instead of " + ingr.main_comp + ", use either tofu or eggplant. We will default to tofu for fish and eggplant for other meats, but either could be used. You can use the same amount (" + getQuantityString(ingr, 1) + "). These usually take around 20-35 minutes to cook depending on the method, but are likely fine with the original time specified by the recipe.")
-            num_subs += 1
+        if (isMeat > 0.8 or isFish > 0.8) and isFruit < 0.5:
+            if "sauce" in ingr.main_comp:
+                new_instructions.append("Instead of " + ingr.main_comp + ", use a meatless variant of the sauce. You can use the same amount (" + getQuantityString(ingr, 1) + ").")
+                num_subs += 1
+            elif "broth" in ingr.main_comp:
+                new_instructions.append("Instead of " + ingr.main_comp + ", use a meatless/vegetable broth. You can use the same amount (" + getQuantityString(ingr, 1) + ").")
+                num_subs += 1
+            else:
+                new_instructions.append("Instead of " + ingr.main_comp + ", use either tofu or eggplant. We will default to tofu for fish and eggplant for other meats, but either could be used. You can use the same amount (" + getQuantityString(ingr, 1) + "). These usually take around 20-35 minutes to cook depending on the method, but are likely fine with the original time specified by the recipe.")
+                num_subs += 1
             # if isMeat > isFish:
             #     ingr.main_comp = "eggplant"
             # else:
@@ -546,9 +593,26 @@ def makeVeg(pipe2, ingredients: list, main_action: str, action_priority_list: li
                 for mm in modss:
                     ingr_res += "You can use a " + mm + " version of " + ingr.main_comp + " instead to make this more vegetarian-friendly. "
                 for su in subss:
+                    if su in subst_seen:
+                        sub_list = get_substitute_list(ingr.main_comp)
+                        if sub_list == None: continue
+                        sub_list = getNonMeat(sub_list)
+                        sub_list = rankHealthy(sub_list)
+                        if len(sub_list) < 1: continue
+                        counter = 0
+                        while counter < len(sub_list):
+                            if sub_list[counter].lower() in sub_list:
+                                counter += 1
+                        if counter >= len(sub_list): continue
+                        ingr_res += "You could substitute " + ingr.main_comp + " with " + sub_list[counter].lower() + ". "
+                        subst_seen.append(sub_list[counter].lower())
+                        continue
                     ingr_res += "You could substitute " + ingr.main_comp + " with " + su + ". "
+                    subst_seen.append(su)
                 for mu in multis:
-                    ingr_res += "If you don't want to replace " + ingr.main_comp + ", you could use " + str(mu) + " of the original amount: " + getQuantityString(ingr, mu) + ". "
+                    if getQuantityString(ingr,1) == "": continue
+                    ingr_res += "If you don't want to replace " + ingr.main_comp + ", you could use " + str(mu) + " of the original amount: " + getQuantityString(ingr,1) + " (new amount: " + getQuantityString(ingr, mu) + "). "
+                    
 
                 new_instructions.append(ingr_res)
                 num_subs += 1
@@ -572,8 +636,8 @@ def makeVeg(pipe2, ingredients: list, main_action: str, action_priority_list: li
             if num_subs >= min_transforms:
                 break 
 
-    for abc in new_instructions:
-        print(abc)
+    # for abc in new_instructions:
+    #     print(abc)
     return new_instructions
 
 # MAKE NON-VEG
@@ -596,6 +660,7 @@ def makeNonVeg(pipe2, ingredients: list, main_action: str, action_priority_list:
     num_subs = 0 # counter for the number of substitutions made. if not at least 3 substitions are made, do some later
 
     ingr_seen = []
+    subst_seen = []
 
     for ingr in ingredients: 
         # go through healthy ingr subs and do those substitutions
@@ -620,8 +685,24 @@ def makeNonVeg(pipe2, ingredients: list, main_action: str, action_priority_list:
                 for mm in modss:
                     ingr_res += "You can use a " + mm + " version of " + ingr.main_comp + " instead to make this more non-veg. "
                 for su in subss:
+                    if su in subst_seen:
+                        sub_list = get_substitute_list(ingr.main_comp)
+                        if sub_list == None: continue
+                        sub_list = getMeat(sub_list)
+                        sub_list = rankHealthy(sub_list)
+                        if len(sub_list) < 1: continue
+                        counter = 0
+                        while counter < len(sub_list):
+                            if sub_list[counter].lower() in sub_list:
+                                counter += 1
+                        if counter >= len(sub_list): continue
+                        ingr_res += "You could substitute " + ingr.main_comp + " with " + sub_list[counter].lower() + ". "
+                        subst_seen.append(sub_list[counter].lower())
+                        continue
                     ingr_res += "You could substitute " + ingr.main_comp + " with " + su + ". "
+                    subst_seen.append(su)
                 for mu in multis:
+                    if getQuantityString(ingr,1) == "": continue
                     ingr_res += "If you don't want to replace " + ingr.main_comp + ", you could use " + str(mu) + " of the original amount: " + getQuantityString(ingr, mu) + ". "
 
                 new_instructions.append(ingr_res)
@@ -651,8 +732,8 @@ def makeNonVeg(pipe2, ingredients: list, main_action: str, action_priority_list:
             if num_subs >= min_transforms:
                 break 
 
-    for abc in new_instructions:
-        print(abc)
+    # for abc in new_instructions:
+    #     print(abc)
     return new_instructions
 
 ### MAKE INDIAN
@@ -676,7 +757,7 @@ def makeInd(pipe2, ingredients: list, main_action: str, action_priority_list: li
     min_transforms = 3
 
     # ingredient word as key to an array of options. this array is made of tuples for suggestions. the 1st (not 0th) element specifies whether it is a quantity mod ('multi'), a substitution ('sub'), or a modded ver ('mod')
-    ind_ingr_subs = {'butter':[('ghee', 'sub')], 'cinnamon':[('cardamom', 'sub')], 'milk':[('coconut milk', 'sub')], 'ginger':[('cardamom', 'sub')], 'citrus':[('coriander', 'sub')], 'pepper':[('tumeric', 'sub')], 'sugar':[('jaggery powder', 'sub')], 'rice':[('basmati', 'mod')], 'jalapeno':[('chilli pepper', 'sub')],'chilli':[(1.25, 'multi')], 'flour':[('rice', 'mod')], 'beans':[('chickpeas', 'sub')], 'peas':[('chickpeas', 'sub')]}
+    ind_ingr_subs = {'butter':[('ghee', 'sub')], 'cinnamon':[('cardamom', 'sub')], 'milk':[('coconut milk', 'sub')], 'ginger':[('cardamom', 'sub')], 'citrus':[('coriander', 'sub')], 'pepper':[('tumeric', 'sub')], 'sugar':[('jaggery powder', 'sub')], 'rice':[('basmati', 'mod')], 'jalapeno':[('chilli pepper', 'sub')],'chilli':[(1.25, 'multi')], 'flour':[('rice flour', 'sub')], 'beans':[('chickpeas', 'sub')], 'peas':[('chickpeas', 'sub')]}
 
     # basically, just analyze the steps, ingredients, and main cooking action to see what can be made healthier through IF statements, and maybe webscraped substitutions
 
@@ -685,6 +766,7 @@ def makeInd(pipe2, ingredients: list, main_action: str, action_priority_list: li
     num_subs = 0 # counter for the number of substitutions made. if not at least 3 substitions are made, do some later
 
     ingr_seen = []
+    subst_seen = []
 
     for ingr in ingredients:
 
@@ -724,9 +806,13 @@ def makeInd(pipe2, ingredients: list, main_action: str, action_priority_list: li
                 for mm in modss:
                     ingr_res += "You can use a " + mm + " version of " + ingr.main_comp + " instead to make this more Indian. "
                 for su in subss:
+                    if su in subst_seen:
+                        continue
                     ingr_res += "You could substitute " + ingr.main_comp + " with " + su + ". "
+                    subst_seen.append(su)
                 for mu in multis:
-                    ingr_res += "If you don't want to replace " + ingr.main_comp + ", you could use " + str(mu) + " of the original amount: " + getQuantityString(ingr, mu) + ". "
+                    if getQuantityString(ingr,1) == "": continue
+                    ingr_res += "If you don't want to replace " + ingr.main_comp + ", you could use " + str(mu) + " of the original amount: "  + getQuantityString(ingr,1) + " (new amount: " + getQuantityString(ingr, mu) + "). "
 
                 new_instructions.append(ingr_res)
                 num_subs += 1
@@ -750,8 +836,8 @@ def makeInd(pipe2, ingredients: list, main_action: str, action_priority_list: li
             if num_subs >= min_transforms:
                 break 
 
-    for abc in new_instructions:
-        print(abc)
+    # for abc in new_instructions:
+    #     print(abc)
     return new_instructions
 
 # makeInd(ingredients, main_action, action_priority_list)
@@ -770,8 +856,8 @@ def getNewPortions(pipe2, ingredients:list, multiplier: float):
             newSQ = ingr.sub_quantity
         new_ingr.append(ingredients_parser.Ingredient(ingr.og_text, ingr.main_comp, newQ, ingr.measurement, newSQ, ingr.sub_measurement, ingr.descriptors))
 
-    for ni in new_ingr:
-        print(ni)
+    # for ni in new_ingr:
+    #     print(ni)
 
     return new_ingr
 
@@ -789,6 +875,15 @@ def makeDairyFree(pipe2, ingredients: list, main_action: str, action_priority_li
         for hk in dairy_keywords:
             if hk in ingr.main_comp:
                 
+                if hk in ['cream', 'half & half', 'half and half']:
+                    ingr_res = "You could substitute " + ingr.main_comp + " with coconut cream. "
+                    new_instructions.append(ingr_res)
+                    break
+                elif hk == "whey":
+                    ingr_res = "You could substitute " + ingr.main_comp + " with rice protein. "
+                    new_instructions.append(ingr_res)
+                    break
+
                 sub_list = get_substitute_list(ingr.main_comp)
                 if sub_list == None: continue
                 sub_list = getDairyFree(sub_list)
@@ -800,8 +895,8 @@ def makeDairyFree(pipe2, ingredients: list, main_action: str, action_priority_li
                 new_instructions.append(ingr_res)
                 break
 
-    for abc in new_instructions:
-        print(abc)
+    # for abc in new_instructions:
+    #     print(abc)
     return new_instructions
 
 ### GLUTEN FREE
@@ -811,7 +906,7 @@ def makeGlutenFree(pipe2, ingredients: list, main_action: str, action_priority_l
     new_instructions = []
 
     gluten_keywords = ['wheat', 'flour', 'rye', 'barley', 'malt', 'starch', 'pasta', 'spaghetti', 'ravioli', 'dumpling', 'ramen', 'soba', 'udon', 'bread', 'tortilla', 'crumb', 'toast', 
-                       'beer', 'pita', 'oats', 'oatmeal', 'bagel', 'muffin', 'naan', 'biscuit', 'roux']
+                       'beer', 'pita', 'oats', 'oatmeal', 'bagel', 'muffin', 'naan', 'biscuit', 'roux', 'noodle']
 
     # now, go through the ingredients
 
@@ -830,6 +925,6 @@ def makeGlutenFree(pipe2, ingredients: list, main_action: str, action_priority_l
                 new_instructions.append(ingr_res)
                 break
 
-    for abc in new_instructions:
-        print(abc)
+    # for abc in new_instructions:
+    #     print(abc)
     return new_instructions

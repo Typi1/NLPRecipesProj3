@@ -1,23 +1,51 @@
 from enum import Enum
 from typing import Optional
 import stanza as st
-import re
-import ingredients_parser
 
 ingredient_labels = ["ingredient", "slices", "chunks", "quantity"]
 tool_labels = ["appliance", "cooking utensil", "container", "bowl", "pan", "board", "measuring tool", "knife", "strainer", "colinder", "spatula"]
 separation_labels = ["separate", "remove", "sift", "drain", "disgard", "filter"]
 combination_labels = ["add", "combine", "mix", "stir", "blend", "pour"]
 
-tools_labels2 = ['stove', 'fan', 'microwave', 'oven', 'scale', 'grinder', 'mixer', 'blender', 'fryer', 'toaster', 'sandwich press', 'panini press', 'sandwich presses', 'panini presses', 'cooktop', 'juicer', 'machine', 'maker', 'grinder', 'shaker', 'saucepan', 'pan', 'kadai',  'cooker', 'pot', 'lid', 'food processor', 'processor', 'skillet', 'foil', 'sheet', 'steamer', 'purifier', 'colinder', 'kettle', 'bowl', 'plate', 'board', 'tray', 'trey', 'rack', 'knife', 'knives', 'spoon', 'fork', 'tongs', 'cup', 'turner', 'spatula', 'peeler', 'skinner', 'whisk', 'colander', 'opener', 'dish', 'masher', 'spinner', 'grater', 'shears', 'scissors', 'garlic press', 'grill', 'press', 'stockpot', 'ladle', 'mitt', 'guard', 'cover', 'trivet', 'timer', 'phone', 'container', 'fridge', 'refrigerator', 'freezer', 'tin', 'paper', 'towel', 'sponge', 'bag', 'bin', 'mill', 'mortar', 'pestle', 'dispenser', 'chopper', 'slicer', 'mandoline', 'jar', 'tool', 'utensil', 'appliance']
-verbs_to_tools = {'freeze': 'freezer', 'refrigerate':'refrigerator', 'chill':'refrigerator', 'grate':'grater','blend':'blender', 'fry':'stove', 'bake':'oven', 'stir':'spoon', 'microwave':'microwave', 'juice':'juicer', 'press':'press', 'grind':'grinder','toast':'toaster','boil':'stove', 'cut':'knife','slice':'knife', 'chop':'knife', 'scoop':'spoon','peel':'peeler','whisk':'whisk','mash':'masher', 'grill':'grill'}
 
 class ListType(Enum):
     AND = 0 # a list of things that all are required
     OR = 1 # a list of things that can be substituted
     UNSPECIFIED = 2 # if the list type cannot be determined
 
+# represents combinations of ingredients like a batter being made of eggs and stuff. uses list detection and dependency parsers to form this
+class IngredCombo:
+    def __init__(   self, 
+                    id: int,            # a unique id for each ingredient combo object 
+                    grouping_verb: str, # the verb that applies to the combination of ingredients. ex: "mix", "place X in bowl"/"stir"
+                    constituents: list, # list of strings that go into this combination
+                    combo_names: Optional[list] = None):
+        self.id = id
+        self.grouping_verb = grouping_verb
+        self.constituents = constituents
+        self.combo_names = []
+        if combo_names != None:
+            self.combo_names += combo_names
 
+    def addComboName(self, name:str):
+        self.combo_names.append(name)
+    
+    def makeList(self):
+        test_str = ""
+        for x in self.constituents:
+            test_str += x
+            test_str += " "
+        return test_str.rstrip()
+    
+    # TODO
+    def addConstituent(self, ingr):
+        pass
+
+    def __str__(self):
+        return "Combination type: " + self.combo_type + "\n\tGrouping verb: " + self.grouping_verb + "\n\tConstituents: " + str(self.constituents)
+
+
+# note when going over ingredients, if there is a verb associated with it (like chopped leeks), make it a step if not already (chop leeks)
 
 class Step:
     def __init__(   self, 
@@ -124,189 +152,34 @@ def getDependency(input_dep:list):
 
     return (dependency_dict, text_to_ids)
         
-
-def removeXWords(text:str):
-
-    final = text
-
-    the_result = re.search("(^|\s)the(se)*(\W|$)",final.lower())
-    if the_result != None:
-        final = (final[:the_result.span()[0]] + " " +  final[the_result.span()[1]:]).lstrip().rstrip()
-
-    a_result = re.search("(^|\s)an*(\W|$)",final.lower())
-    if a_result != None:
-        final = (final[:a_result.span()[0]] + " " +  final[a_result.span()[1]:]).lstrip().rstrip()
-
-    of_result = re.search("(^|\s)of(\W|$)",final.lower())
-    if of_result != None:
-        final = (final[:of_result.span()[0]] + " " +  final[of_result.span()[1]:]).lstrip().rstrip()
-
-    edge_result = re.search("(^|\s)edges*(\W|$)",final.lower())
-    if edge_result != None:
-        final = (final[:edge_result.span()[0]] + " " +  final[edge_result.span()[1]:]).lstrip().rstrip()
-
-    top_result = re.search("(^|\s)tops*(\W|$)",final.lower())
-    if top_result != None:
-        final = (final[:top_result.span()[0]] + " " +  final[top_result.span()[1]:]).lstrip().rstrip()
-
-    side_result = re.search("(^|\s)sides*(\W|$)",final.lower())
-    if side_result != None:
-        final = (final[:side_result.span()[0]] + " " +  final[side_result.span()[1]:]).lstrip().rstrip()
-    
-    bottom_result = re.search("(^|\s)bottoms*(\W|$)",final.lower())
-    if bottom_result != None:
-        final = (final[:bottom_result.span()[0]] + " " +  final[bottom_result.span()[1]:]).lstrip().rstrip()
-    
-    outer_result = re.search("(^|\s)outer(\W|$)",final.lower())
-    if outer_result != None:
-        final = (final[:outer_result.span()[0]] + " " +  final[outer_result.span()[1]:]).lstrip().rstrip()
-
-    inner_result = re.search("(^|\s)inner(\W|$)",final.lower())
-    if inner_result != None:
-        final = (final[:inner_result.span()[0]] + " " +  final[inner_result.span()[1]:]).lstrip().rstrip()
-
-    inside_result = re.search("(^|\s)in(?:side)*(\W|$)",final.lower())
-    if inside_result != None:
-        final = (final[:inside_result.span()[0]] + " " +  final[inside_result.span()[1]:]).lstrip().rstrip()
-
-    outside_result = re.search("(^|\s)out(?:side)*(\W|$)",final.lower())
-    if outside_result != None:
-        final = (final[:outside_result.span()[0]] + " " +  final[outside_result.span()[1]:]).lstrip().rstrip()
-
-    around_result = re.search("(^|\s)a*round(\W|$)",final.lower())
-    if around_result != None:
-        final = (final[:around_result.span()[0]] + " " +  final[around_result.span()[1]:]).lstrip().rstrip()
-
-    with_result = re.search("(^|\s)with(?:in)*(\W|$)",final.lower())
-    if with_result != None:
-        final = (final[:with_result.span()[0]] + " " +  final[with_result.span()[1]:]).lstrip().rstrip()
-    
-    on_result = re.search("(^|\s)on(?:to)*(\W|$)",final.lower())
-    if on_result != None:
-        final = (final[:on_result.span()[0]] + " " +  final[on_result.span()[1]:]).lstrip().rstrip()
-
-    to_result = re.search("(^|\s)to(wards*)*(\W|$)",final.lower())
-    if to_result != None:
-        final = (final[:to_result.span()[0]] + " " +  final[to_result.span()[1]:]).lstrip().rstrip()
-
-    up_result = re.search("(^|\s)up(per)*(\W|$)",final.lower())
-    if up_result != None:
-        final = (final[:up_result.span()[0]] + " " +  final[up_result.span()[1]:]).lstrip().rstrip()
-
-    down_result = re.search("(^|\s)down(\W|$)",final.lower())
-    if down_result != None:
-        final = (final[:down_result.span()[0]] + " " +  final[down_result.span()[1]:]).lstrip().rstrip()
-
-    high_result = re.search("(^|\s)highe*(r|st)*(\W|$)",final.lower())
-    if high_result != None:
-        final = (final[:high_result.span()[0]] + " " +  final[high_result.span()[1]:]).lstrip().rstrip()
-
-    low_result = re.search("(^|\s)lowe*(r|st)*(\W|$)",final.lower())
-    if low_result != None:
-        final = (final[:low_result.span()[0]] + " " +  final[low_result.span()[1]:]).lstrip().rstrip()
-
-    
-
-    return final
-
-# takes a "test" string to compare to a "standard" string, using multiple heuristics
-def isDerivativeOfSecond(test:str, standard:str):
-    test_words = re.findall("[\d\w\-\/\']+", test)
-    standard_words = re.findall("[\d\w\-\/\']+", standard)
-    # standard_words_plural = list(sw + "s" for sw in standard_words)
-    # print(test_words)
-    # first score: overall score of how many words from the test string are in the standard string
-    matches_score = 0
-    for tt in test_words:
-        # if tt in standard_words:
-        #     num_matches += 1
-        # for sw in standard_words:
-        search_result = re.search("(^|\W)" + tt + "(\W|$)", standard)
-        if search_result != None:
-            matches_score += 1 / len(standard_words)
-
-    if len(test_words) == 0:
-        general_prop = 0
-    else:
-        general_prop = matches_score / len(test_words)
-
-    # add other scores if necessary
-    
-    return (standard, general_prop, test)
-
+        
 
 # returns whether the input word is an appliance, utensil, measuring tool, etc.
 # return is bool of whether tool or not, and (updated) seen dict
 def isTool(pipe2, text:str, seen:dict):
     res = False
-    
+    text = text.lower()
+    if not text in seen.keys():
+        (_, seen) = getNounType(pipe2, text, seen)
+        # print("?")
 
-    # of_result = re.search("(^|\s)of(\W|$)",text.lower())
-    # if of_result != None:
-    #     text = (text[:of_result.span()[0]]).lstrip().rstrip()
-    with_result = re.search("(^|\s)with(\W|$)",text.lower())
-    if with_result != None:
-        text = (text[:with_result.span()[0]]).lstrip().rstrip()
+    if (text in seen.keys()) and seen[text]['labels'][0] in tool_labels:
+            if seen[text]['scores'][0] > 0.1:
+                res = True
 
-    text = removeXWords(text.lower())
+    return (res, seen)
 
-    res_text = text
-
-    score = 0
-    tool_rankings = []
-    for wrd in tools_labels2:
-        tool_rankings.append(isDerivativeOfSecond(text, wrd))
-    tool_rankings.sort(key=lambda x: x[1], reverse=True)
-    # print(tool_rankings)
-    if len(tool_rankings) > 0:
-        score = tool_rankings[0][1]
-        # print(score)
-        
-    
-    if score == 0 and text != "":
-        if not text in seen.keys():
-            (_, seen) = getNounType(pipe2, text, seen)
-            # print("?")
-
-        if (text in seen.keys()) and seen[text]['labels'][0] in tool_labels:
-                if seen[text]['scores'][0] > 0.8:
-                    res = True
-    elif score != 0:
-        res = True
-
-    return (res, seen, res_text)
-
-def isIngredient(depgram, og_text:str, seen:dict, ingredients_list:list):
+def isIngredient(pipe2, text:str, seen:dict):
     res = False
-    text = removeXWords(og_text.lower())
+    text = text.lower()
+    if not text in seen:
+        (_, seen) = getNounType(pipe2, text, seen)
+        # print("?")
 
-    if text == "":
-        text = og_text.lower()
+    if (text in seen) and seen[text]['labels'][0] in ingredient_labels:
+            res = True
 
-    # print(depgram(text).sentences[0].dependencies)
-
-    deps = getDependency(depgram(text).sentences[0].dependencies)[0]
-    root_word = deps[list(deps[0].deps.keys())[0]]
-    if "VB" in root_word.typ:
-        text = text.replace(root_word.text, "")
-        # print(text)
-    res_text = text
-
-    
-
-    # score = 0
-    ingredient_rankings = []
-    for ingredient in ingredients_list:
-        ingredient = ingredient.main_comp
-        ingredient_rankings.append(isDerivativeOfSecond(text, ingredient))
-
-    ingredient_rankings.sort(key=lambda x: x[1], reverse=True)
-
-    if len(ingredient_rankings) > 0 and ingredient_rankings[0][1] > 0:
-        res = True
-        res_text = ingredient_rankings[0][0]
-
-    return (res, seen, res_text)
+    return (res, seen)
 
 
 
@@ -325,6 +198,15 @@ def getNounType(pipe2, text:str, seen: dict):
     # print(seen)
     return (res['labels'][0], seen)
 
+def getAdjType(pipe2, text:str, seen: dict):
+    res = ""
+    if text in seen:
+        res = seen[text]
+    else:
+        res = pipe2(text, candidate_labels=["preparation manner", "compliment", "color", "texture", "temperature", "viscosity", "taste", "size"])
+        seen[text] = res
+    
+    return (res['labels'][0], seen)
 
 def getFirstType(children:list, typ: str):
     res = None
@@ -496,15 +378,14 @@ def getNPfromNNx(   tree:st.models.constituency.parse_tree.Tree,
     return (res_tree, noun_found, NP_found)
         
 
-def getPhrases(pipe2, depgram, tree:st.models.constituency.parse_tree.Tree, og_text:str, dependencies:dict, ingredients_list:list):
+def getPhrases(pipe2, tree:st.models.constituency.parse_tree.Tree, og_text:str, dependencies:dict):
     verb_phrases = {}
     prep_phrases = {}
     noun_lists = {}
     nouns = []
-    return getPhrasesRecurs(pipe2, depgram, tree, verb_phrases, prep_phrases, noun_lists, og_text, tree, dependencies, 0, nouns, ingredients_list)
+    return getPhrasesRecurs(pipe2, tree, verb_phrases, prep_phrases, noun_lists, og_text, tree, dependencies, 0, nouns)
 
 def getPhrasesRecurs(   pipe2,
-                        depgram, 
                         tree:st.models.constituency.parse_tree.Tree, # the stanza-generated constituency tree currently being analyzed (recursively)
                         verb_phrases:dict, # a dictionary of verb phrases: the verb and the phrase it represents
                         prep_phrases:dict, # a dictionary of preposition phrases, will be useful for questions
@@ -513,8 +394,7 @@ def getPhrasesRecurs(   pipe2,
                         og_tree:st.models.constituency.parse_tree.Tree, # the whole tree for the step
                         dependencies:dict, # a dictionary of dependency relations, going from a word id to data where one can find its head or to the words dependent on it
                         num_words_before: int, # the number of words before the current phrase being analyzed. Useful for referencing the dependencies dict
-                        nouns_cat: list, # a simple list of nouns and compound nouns
-                        ingredients_list: list
+                        nouns_cat: list # a simple list of nouns and compound nouns
                         ):
     # do a search through the consistuency tree to retrieve the prepositional phrase
     # also identify whether it is referring to a location on a food item or an appliance (cookware)
@@ -548,7 +428,6 @@ def getPhrasesRecurs(   pipe2,
                 isList = True
                 if child.children[0].label.lower() == "and":
                     list_type = ListType.AND
-                    # print(tree)
                 elif child.children[0].label.lower() == "or":
                     list_type = ListType.OR
 
@@ -579,8 +458,7 @@ def getPhrasesRecurs(   pipe2,
                         NP_res = getNPfromNNx(og_tree, gr_verb.deps[dp][1], False, False)
                         if NP_res[0] == None: continue
                         temp_obj = constituency_to_str(NP_res[0])
-                        # print(ingredients_list)
-                        if all(not temp_obj in yy for yy in nouns) and isIngredient(depgram, temp_obj, {}, ingredients_list)[0]:
+                        if all(not temp_obj in yy for yy in nouns) and isIngredient(pipe2, temp_obj, {}):
                             nouns.append(temp_obj)
                         # print(constituency_to_str(getNPfromNNx(og_tree, gr_verb.deps[dp][1], False, False)[0]))
 
@@ -649,7 +527,7 @@ def getPhrasesRecurs(   pipe2,
                 num_ids_in_phrase += 1
             if str(branch) != "," and str(branch) != branch.label:
                 # print(branch)
-                (verb_phrases, prep_phrases, noun_lists, temp_num, nouns) = getPhrasesRecurs(pipe2, depgram, branch, verb_phrases, prep_phrases, noun_lists, og_text, og_tree, dependencies, num_words_before + num_ids_in_phrase, nouns_cat, ingredients_list)
+                (verb_phrases, prep_phrases, noun_lists, temp_num, nouns) = getPhrasesRecurs(pipe2, branch, verb_phrases, prep_phrases, noun_lists, og_text, og_tree, dependencies, num_words_before + num_ids_in_phrase, nouns_cat)
                 num_ids_in_phrase += temp_num
 
     return (verb_phrases, prep_phrases, noun_lists, num_ids_in_phrase, nouns_cat)
@@ -672,11 +550,14 @@ def doParsing(pipe2, depgram, test_phrase:str, ingredient_list:list):
     # print(test_doc.entities)
     steps = {}
     curr_id = 1
+    noun_seen = {}
+    adj_seen = {}
 
-
+    # dict of ingredient combinations with integer ids as keys and values:
+    #   the list of constituent nouns as tuples with if they are 
+    hierarchy = {}
 
     for sent in test_doc.sentences:
-        # print(curr_id)
         consti = sent.constituency
         (dep, name_to_dep_ids) = getDependency(sent.dependencies)
         # for ti in dep.keys():
@@ -691,7 +572,7 @@ def doParsing(pipe2, depgram, test_phrase:str, ingredient_list:list):
         # print(sent.text)
 
         # print(constituency_to_str(consti))
-        (verb_phrases, prep_phrases, noun_lists, _, nouns_phr) = getPhrases(pipe2, depgram, consti.children[0], sent.text, dep, ingredient_list)
+        (verb_phrases, prep_phrases, noun_lists, _, nouns_phr) = getPhrases(pipe2, consti.children[0], sent.text, dep)
         # print("verb phrases: " + str(verb_phrases))
         # print("prep phrases: " + str(prep_phrases))
         # print("noun lists: " + str(noun_lists))
@@ -699,6 +580,7 @@ def doParsing(pipe2, depgram, test_phrase:str, ingredient_list:list):
         # getPhrases(consti.children[0], sent.text)
 
         root = ""
+        actions = {}
         ingredients = {}
         tools = {}
         details = {}
@@ -724,16 +606,14 @@ def doParsing(pipe2, depgram, test_phrase:str, ingredient_list:list):
 
         # print("STARTING ZERO SHOT")
         for nn in nouns_phr:
-            # (res, nouns_seen) = getNounType(pipe2, nn[0], nouns_seen)
-            # print(ingredient_list)
-            (tool, nouns_seen, tool_res) = isTool(pipe2, nn[0], nouns_seen)
-            (ingr, nouns_seen, ingr_res) = isIngredient(depgram, nn[0], nouns_seen, ingredient_list)
-            
+            (res, nouns_seen) = getNounType(pipe2, nn[0], nouns_seen)
+            (ingr, nouns_seen) = isIngredient(pipe2, nn[0], nouns_seen)
+            (tool, nouns_seen) = isTool(pipe2, nn[0], nouns_seen)
             if ingr:
-                ingredients[nn[0]] = (nn[0], nn[1], ingr_res)  # change later to be something like all the ingredients that make it up
+                ingredients[nn[0]] = (nn[0], nn[1], res) # change later to be something like all the ingredients that make it up
             elif tool:
                 # print(tools)
-                tools[nn[0]] = (nn[0], nn[1], tool_res)
+                tools[nn[0]] = (nn[0], nn[1], res) 
         # print("END OF ZERO SHOT")
         # print(nouns_seen)
 
@@ -741,17 +621,7 @@ def doParsing(pipe2, depgram, test_phrase:str, ingredient_list:list):
         
         # create hierarchies for noun_lists
         for nn in noun_lists.keys():
-            for nnn in noun_lists[nn][1]:
-                (ingr, nouns_seen, ingr_res) = isIngredient(depgram, nnn, nouns_seen, ingredient_list)
-                if ingr:
-                    ingredients[nnn] = (nnn, noun_lists[nn][2], ingr_res)
-
-        for vkey in verb_phrases.keys():
-            # print(verb_phrases[vkey][0].lower())
-            if verb_phrases[vkey][0].lower() in verbs_to_tools.keys():
-                associated_tool = verbs_to_tools[verb_phrases[vkey][0].lower()]
-                
-                tools[associated_tool] = (associated_tool, verb_phrases[vkey][0].lower(), associated_tool)
+            noun_lists[nn]
 
         steps[curr_id] = Step(curr_id, root, verb_phrases, ingredients, tools, details, sent.text)
         
