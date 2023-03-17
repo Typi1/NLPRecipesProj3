@@ -1,8 +1,8 @@
 # MealMaster
 
 By:
-    Gustavo Carvalho
-    Sean Lee
+    Gustavo Carvalho,
+    Sean Lee,
     Ethan Kim
 
 ## 1) Description
