@@ -31,7 +31,7 @@ MealMaster is a simple recipe transformation and reference tool. Given a provide
 	- It will then process the recipe. This may take a couple minutes. There will be a clear message indicating when it is done processing ("Alright, [recipe_name] has been booted up!").
 	- From here, you can choose to do multiple actions from a MAIN ACTION HUB.
 
-#	- MAIN ACTION HUB
+###	- MAIN ACTION HUB
 		- If you type in "1" and then press Enter, MealMaster will provide the ingredients as given in the recipe.
 		- If you type in "2" and then press Enter, MealMaster will provide a list of tools and kitchen appliances needed for the recipe.
 		- If you type in "3" and then press Enter, MealMaster will provide a list of all the steps as given in the recipe.
@@ -44,7 +44,7 @@ MealMaster is a simple recipe transformation and reference tool. Given a provide
 		
 		- If the action performed isn't the ones indicated by '4' or '7', the program will return to MAIN ACTION HUB after.
 
-#	- TRANSFORMATION HUB	
+###	- TRANSFORMATION HUB	
 		- If you type in "1" and then press Enter, MealMaster will print a list of actions one could take to make the recipe vegetarian-friendly.
 		- If you type in "2" and then press Enter, MealMaster will print a list of actions one could take to make the recipe non-vegetarian.
 		- If you type in "3" and then press Enter, MealMaster will print a list of actions one could take to make the recipe healthier.
