@@ -13,9 +13,9 @@ MealMaster is a simple recipe transformation and reference tool. Given a provide
 3. Can print out the list of steps
 4. Can give instructions on how to transform the recipe to vegetarian/non-vegetarian
 5. Can give instructions on how to transform the recipe to be more/less healthy
-6. Can give instructions on how to make the recipe more like Indian cuisine
-7. Can give a modified ingredient list for the recipe with the quantities all multiplied by a given value (ex: make 1.5x the original amount)
-8. Can make the recipe lactose-free or gluten-free
+6. Can give instructions on how to make the recipe more like Indian cuisine (FOR ADDITIONAL STYLE OF CUISINE)
+7. Can give a modified ingredient list for the recipe with the quantities all multiplied by a given value (ex: make 1.5x the original amount) (OPTIONAL)
+8. Can make the recipe lactose-free or gluten-free (OPTIONAL)
 
 ## 2) How to use the program
 
